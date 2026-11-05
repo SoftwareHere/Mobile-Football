@@ -35,7 +35,7 @@
     ov.appendChild(el);
     PG.Input.enabled = false;
   };
-  M.hide = () => { const ov = M.ov(); ov.className = 'overlay'; ov.innerHTML = ''; PG.Input.enabled = true; PG.Input.reset(); };
+  M.hide = () => { const ov = M.ov(); ov.className = 'overlay'; ov.innerHTML = ''; PG.Input.enabled = true; PG.Input.reset(); PG.Game.paused = false; };
 
   M.hudInfo = () => {
     const gs = M.gs;
@@ -519,6 +519,7 @@
         h('button.btn.big', { onclick: resume }, 'RESUME'),
         h('button.btn', { onclick: () => M.simRest() }, 'SIM REST OF GAME')));
     M.show(el, 'center');
+    PG.Game.paused = true;
   };
 
   M.simRest = () => {
