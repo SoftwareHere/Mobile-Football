@@ -80,6 +80,7 @@ tests/                headless Node tests for the league/sim/career layers
 ```bash
 node tests/sim-test.js 15     # simulate a full 32-team season + offseason at 15-minute quarters
 node tests/career-test.js     # create careers at every position and run the draft
+node tests/engine-test.js 400 # AI-vs-AI on-field plays: run yards, completion %, sacks, INTs
 ```
 
 ## Credits

@@ -109,15 +109,15 @@
   // run paths relative to ball (x, y with y multiplied by play dir)
   P.RUNS = {
     inside: { path: [[-3, 1.2], [0, 2.4], [5, 3]], mesh: 0.45 },
-    outside: { path: [[-4.5, 3], [-2, 7], [3, 9.5]], mesh: 0.45 },
+    outside: { path: [[-3.5, 2.5], [-1, 5.5], [4, 7]], mesh: 0.4 },
     power: { path: [[-3.5, 0.6], [0, 2], [5, 2.6]], mesh: 0.5 },
-    counter: { path: [[-5.5, -1.6], [-3.5, 1], [0, 3], [6, 3.2]], mesh: 0.65 },
-    toss: { path: [[-6, 5], [-3, 10], [3, 12.5]], mesh: 0.32, toss: true },
-    draw: { path: [[-4, 0], [0, 0.5], [6, 0.8]], mesh: 0.9, delay: 0.7 },
+    counter: { path: [[-4, -0.6], [-2.5, 1.5], [1, 2.8], [6, 3]], mesh: 0.4 },
+    toss: { path: [[-5, 4], [-2, 8], [4, 10]], mesh: 0.3, toss: true },
+    draw: { path: [[-4, 0.5], [0, 0.8], [6, 1]], mesh: 0.45, delay: 0.35 },
     dive: { path: [[0, 0.7], [4, 0.9]], mesh: 0.35 },
     iso: { path: [[-2, 0.6], [3, 1.2]], mesh: 0.4 },
     sneak: { path: [[1, 0], [4, 0]], mesh: 0, qb: true },
-    qbdraw: { path: [[-5.5, 0], [0, 0.6], [6, 1]], mesh: 0, qb: true, delay: 0.75 },
+    qbdraw: { path: [[-5.5, 0], [0, 0.8], [6, 1]], mesh: 0, qb: true, delay: 0.5 },
   };
 
   // ------------------------------------------------------------- defense

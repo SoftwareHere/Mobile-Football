@@ -229,7 +229,7 @@
           d.asg.deep = Plays.isDeep(d.asg.zone);
           d.asg.rad = d.asg.deep ? 9 : 6;
         }
-        d.recogT = 0.22 + (100 - d.r.prc) * 0.006 + (this.play.pa ? 0.35 : 0);
+        d.recogT = 0.35 + (100 - d.r.prc) * 0.008 + (this.play.pa ? 0.35 : 0) + (d.role === 'S' || d.role === 'CB' ? 0.25 : 0);
         d.sx = d.x; d.sy = d.y;
       }
       this.coverName = (Plays.defById(dp.id) || dp).name;
@@ -366,7 +366,7 @@
           this.meshPt = { x: U.lerp(qb.x, p0.x, 0.5), y: U.lerp(qb.y, p0.y, 0.6) };
           if (Plays.FORMS[pl.form].sg) this.meshPt = { x: qb.x - 0.3, y: U.lerp(qb.y, car.y, 0.6) };
           this.meshT = r.mesh + (r.delay || 0);
-        } else if (r.qb) this.phase = 'run';
+        }
       }
       this.snapClock = this.o.hud ? this.o.hud.clock : 0;
     }
@@ -389,6 +389,7 @@
       }
       if (c.side === 'off') {
         if (c.role === 'QB' && c === this.qb && this.ball.holder !== c) return 'spectate';
+        if (this.phase === 'dev' && this.play.type === 'run' && c.asg && c.asg.type === 'carry' && !this.handed) return 'mesh';
         if (this.ball.state === 'air' && this.sc && this.sc.type === 'catch') return 'catch';
         if (this.phase === 'dev' && c.asg && c.asg.type === 'route') return 'route';
         return 'block';
@@ -542,7 +543,7 @@
       if (e === this.ctrl && this.state === 'live') {
         const mode = this.mode;
         const st = I.stick();
-        const auto = ((mode === 'route' || mode === 'catch' || mode === 'defend' || mode === 'block' || mode === 'spectate') && this.settings.autoRoute && !e.manual) || (mode === 'qb' && !e.userMoved && this.t < (this.dropT || 0)) || (mode === 'qbrun' && !e.userMoved);
+        const auto = ((mode === 'route' || mode === 'catch' || mode === 'defend' || mode === 'block' || mode === 'spectate') && this.settings.autoRoute && !e.manual) || (mode === 'qb' && !e.userMoved && this.t < (this.dropT || 0)) || (mode === 'qbrun' && !e.userMoved) || mode === 'mesh';
         e._auto = auto;
         if (!auto && mode !== 'none') {
           let sp = e.maxSpd * e.spdMul;
@@ -683,7 +684,7 @@
       const car = this.slotEnt[this.play.carrier] || this.qb;
       let tgt = e.asg.target;
       if (!tgt || tgt.st === 'engaged' || tgt.st === 'down') {
-        tgt = null; let bd = e.role === 'OL' ? 4.5 : 9;
+        tgt = null; let bd = e.role === 'OL' ? (this.t > 0.5 ? 8 : 4.5) : 9;
         for (const d of this.def) {
           if (d.st === 'engaged' || d.st === 'down') continue;
           if (d.x < e.x - 1.5) continue;
@@ -769,7 +770,7 @@
       const prog = (pl.prog || []).map((s) => this.slotEnt[s]).filter((r) => r && r.asg && r.asg.type === 'route');
       if (!prog.length) { if (tEl > 1.0) this.throwAway(e); return; }
       const readDur = 0.5 + (100 - e.r.awr) * 0.006;
-      const thresh = U.lerp(2.9, 1.5, U.clamp(tEl / 3.2, 0, 1)) - (e.r.awr - 70) * 0.012;
+      const thresh = U.lerp(2.5, 1.3, U.clamp(tEl / 2.6, 0, 1)) - (e.r.awr - 70) * 0.01;
       // user receiver calling for the ball
       const u = this.userEnt;
       const uIn = u && u.side === 'off' && u.asg && u.asg.type === 'route' && u !== e;
@@ -977,7 +978,7 @@
       const dd = Math.hypot(d.x - L.x, d.y - L.y);
       const reach = this.reach(d);
       if (dd > reach) return 0;
-      let p = 0.14 + (d.r.cth - 50) * 0.005 + (this.hasPerkFor(d, 'ballhawk') ? 0.08 : 0);
+      let p = 0.19 + (d.r.cth - 50) * 0.005 + (this.hasPerkFor(d, 'ballhawk') ? 0.08 : 0);
       p *= 1 - dd / (reach + 0.4);
       return U.clamp(p, 0.01, 0.6);
     }
@@ -1081,6 +1082,8 @@
       this.catcher = r; this.catchX = r.x;
       this.stat(this.passer, 'pCmp', 1); this.stat(r, 'rec', 1);
       r.pose = 'catch'; r.poseT = 0.25;
+      // securing the catch costs a step (less for sure-handed receivers)
+      r.slowT = 0.3; r.slowMul = 0.55 + r.r.cth * 0.002;
       this.stats.catches++;
       const sc = this.sc;
       this.pop(sc && sc.tapped && sc.grade === 'PERFECT' ? 'PERFECT CATCH!' : 'CATCH', r.x, r.y, '#7f7');
@@ -1129,9 +1132,21 @@
       const dirX = e.side === 'off' ? 1 : -1;
       if (a && a.type === 'carry' && a.path && a.idx < a.path.length && e.side === 'off' && !this.scrambled) {
         const p = a.path[a.idx];
-        this.steer(e, p.x, p.y, 1, dt, true);
-        if (Math.hypot(p.x - e.x, p.y - e.y) < 1.2) a.idx++;
-        return;
+        // vision: abandon the called hole if it is clogged
+        let clogged = false;
+        if (e.x > this.los - 3) {
+          for (const d of this.def) {
+            if (d.st === 'down' || d.st === 'engaged' || d.stunT > 0) continue;
+            const ahead = d.x - e.x;
+            if (ahead > -0.5 && ahead < 3 && Math.abs(d.y - e.y) < 1.6) { clogged = true; break; }
+          }
+        }
+        if (!clogged || Math.random() > e.r.awr / 100) {
+          this.steer(e, p.x, p.y, 1, dt, true);
+          if (Math.hypot(p.x - e.x, p.y - e.y) < 1.2) a.idx++;
+          return;
+        }
+        a.idx = a.path.length;
       }
       let gx = dirX * 1.3, gy = 0;
       for (const d of this.defendersOf(e.side)) {
@@ -1155,8 +1170,8 @@
           const dd = dist(d, e);
           if (dd < 1.9 && (d.x - e.x) * dirX > 0) {
             const roll = Math.random();
-            if (roll < dt * 4 * (e.r.jkm / 100)) this.juke(e, d.y > e.y ? -1 : 1);
-            else if (roll < dt * 6 * (e.r.stf / 100) && e.r.stf > 60) this.stiff(e);
+            if (roll < dt * 1.5 * (e.r.jkm / 100)) this.juke(e, d.y > e.y ? -1 : 1);
+            else if (roll < dt * 2.6 * (e.r.stf / 100) && e.r.stf > 60) this.stiff(e);
             break;
           }
         }
@@ -1242,7 +1257,14 @@
       const d = dist(e, car);
       const lead = U.clamp(d / (e.maxSpd * 1.4), 0, 1.0) * (0.5 + e.r.pur * 0.006);
       let tx = car.x + car.vx * lead, ty = car.y + car.vy * lead;
-      this.steer(e, tx, ty, 1, dt, true);
+      // closing burst when near the ball carrier
+      const close = d < 4 ? 1.1 + e.r.pur * 0.0008 : 1;
+      this.steer(e, tx, ty, close, dt, true);
+      if (!e.isUser && e !== this.ctrl && d < 2.2 && d > 0.9 && e.moveCD <= 0 && car.st !== 'down' && Math.random() < dt * (2 + e.r.tak * 0.02)) {
+        const dx = car.x + car.vx * 0.15 - e.x, dy = car.y + car.vy * 0.15 - e.y, m = Math.hypot(dx, dy) || 1;
+        e.vx = dx / m * (e.maxSpd + 2.2); e.vy = dy / m * (e.maxSpd + 2.2);
+        e.diveT = 0.3; e.lunge = true; e.moveCD = 1.6;
+      }
     }
 
     // ------------------------------------------------------------ blocking
@@ -1253,7 +1275,7 @@
       const bp = (kind === 'pass' ? b.r.pbk : b.r.rbk) + b.r.str * 0.35;
       const dp = (kind === 'pass' ? d.r.prs : d.r.bsh) + d.r.str * 0.35;
       const ratio = bp / Math.max(30, dp);
-      let T = kind === 'pass' ? U.clamp(3.0 * Math.pow(ratio, 3) * U.rnd(0.6, 1.4), 0.45, 8) : U.clamp(1.5 * Math.pow(ratio, 3) * U.rnd(0.6, 1.5), 0.3, 5);
+      let T = kind === 'pass' ? U.clamp(3.4 * Math.pow(ratio, 3) * U.rnd(0.65, 1.4), 0.6, 8) : U.clamp(2.6 * Math.pow(ratio, 3) * U.rnd(0.6, 1.5), 0.5, 6);
       if (b.role === 'WR' || b.role === 'RB') T *= 0.6;
       if (this.hasPerkFor(d, 'blitzer')) T *= 0.6;
       d.engT = T; b.engT = T; b.engKind = kind; d.engKind = kind;
@@ -1275,14 +1297,14 @@
       const gx = goal.x - d.x, gy = goal.y - d.y, g = Math.hypot(gx, gy) || 1;
       let push;
       if (d.engKind === 'pass') push = U.clamp(0.5 + d.engPow * 0.03, 0.1, 1.6);
-      else push = U.clamp(0.3 + d.engPow * 0.03, -1.2, 1.0);
+      else push = U.clamp(-0.25 + d.engPow * 0.03, -1.2, 0.8);
       d.vx = gx / g * push; d.vy = gy / g * push;
       if (d.engKind === 'run' && push < 0) { d.vx = Math.abs(push); d.vy = 0; }
       b.vx = d.vx; b.vy = d.vy;
       b.x = U.lerp(b.x, d.x - gx / g * 0.85, 0.3); b.y = U.lerp(b.y, d.y - gy / g * 0.85, 0.3);
       d.engT -= dt;
-      const passBy = car && car.side === 'off' && car !== this.qb && dist(car, d) < 1.3;
-      if (passBy && Math.random() < dt * 3) { this.release(d, false); return; }
+      const passBy = car && car.side === 'off' && car !== this.qb && dist(car, d) < 1.0;
+      if (passBy && Math.random() < dt * (0.6 + d.r.bsh * 0.006)) { this.release(d, false); return; }
       if (d.engT <= 0) { this.release(d, true); if (d.isUser) this.pop('SHED!', d.x, d.y, '#7df'); }
     }
 
@@ -1322,18 +1344,18 @@
       for (const d of this.defendersOf(c.side)) {
         if (d.st === 'down' || d.stunT > 0 || d.tCD > 0) continue;
         const engaged = d.st === 'engaged';
-        const reach = d.lunge ? 1.45 : 0.85;
+        const reach = d.lunge ? 1.45 : 1.0;
         const dd = dist(d, c);
         if (dd > reach) continue;
-        if (engaged && Math.random() > 0.2) continue;
+        if (engaged && Math.random() > 0.08) continue;
         d.tCD = 0.9;
         // tackle probability
-        let p = 0.6 + (d.r.tak - 60) * 0.008;
+        let p = 0.68 + (d.r.tak - 60) * 0.008;
         const elusive = c.r.btk * (this.catcher === c && this.hasPerkFor(c, 'yac') ? 1.12 : 1) * (this.hasPerkFor(c, 'bruiser') ? 1.08 : 1);
-        p -= (elusive - 60) * 0.0055;
-        if (c.jukeT > 0 && Math.abs(d.y - c.y) < 1.5) p *= 0.22 + (100 - c.r.jkm) * 0.0045 * (this.hasPerkFor(c, 'jukebox') ? 0.6 : 1);
-        if (c.stiffT > 0 && (d.x - c.x) * (c.side === 'off' ? 1 : -1) > -0.2) p *= 0.3 + (100 - c.r.stf) * 0.005 * (this.hasPerkFor(c, 'bruiser') ? 0.6 : 1);
-        if (c.spinT > 0) p *= 0.35 + (100 - c.r.spm) * 0.005;
+        p -= (elusive - 60) * 0.005;
+        if (c.jukeT > 0 && Math.abs(d.y - c.y) < 1.5) p *= 0.33 + (100 - c.r.jkm) * 0.0045 * (this.hasPerkFor(c, 'jukebox') ? 0.6 : 1);
+        if (c.stiffT > 0 && (d.x - c.x) * (c.side === 'off' ? 1 : -1) > -0.2) p *= 0.38 + (100 - c.r.stf) * 0.005 * (this.hasPerkFor(c, 'bruiser') ? 0.6 : 1);
+        if (c.spinT > 0) p *= 0.42 + (100 - c.r.spm) * 0.005;
         if (engaged) p *= 0.5;
         if (d.lunge) p += 0.12;
         if (this.hasPerkFor(d, 'enforcer')) p += 0.06;
@@ -1347,7 +1369,7 @@
         if (c.role === 'QB' && this.phase === 'dev') p = Math.min(0.97, p + 0.12 - (this.hasPerkFor(c, 'escape') || this.hasPerkFor(c, 'pocketpresence') ? 0.3 : 0));
         p = U.clamp(p, 0.05, 0.97);
         if (Math.random() < p) { this.tackle(c, d); return; }
-        d.stunT = U.rnd(0.6, 1.0); d.st = 'stun';
+        d.stunT = U.rnd(0.45, 0.8); d.st = 'stun';
         c.slowT = 0.22; c.slowMul = 0.72;
         if (d.lunge) { d.lunge = false; d.diveT = 0; d.stunT = 1.0; }
         this.pop(c.jukeT > 0 ? 'ANKLES!' : c.stiffT > 0 ? 'STIFFED!' : 'MISSED TACKLE', c.x, c.y, '#ff0');
@@ -1377,7 +1399,7 @@
       c.st = 'down'; c.downT = 0;
       // forward progress
       const dirX = c.side === 'off' ? 1 : -1;
-      if (c.r.str > d.r.tak - 5) c.x += dirX * U.rnd(0.2, 0.9);
+      c.x += dirX * U.clamp(U.rnd(0.3, 0.9) + (c.r.str - d.r.tak) * 0.015, 0, 1.4);
       this.tackler = d;
       if (PG.Audio) PG.Audio.hit(0.8 + Math.min(1, this.speed(c) / 9) * 0.6);
       this.burst(c.x, c.y, 6, '#6b4');
@@ -1845,7 +1867,7 @@
       if (!j.active && this.state !== 'dead') F.draw(ctx, 'MOVE', cx, cy + R + 3, { align: 'center', color: 'rgba(255,255,255,0.5)', shadow: false });
       // right plane hints
       const mode = this.state === 'pre' ? 'pre' : this.mode;
-      const hints = { qb: 'DRAG BACK & RELEASE TO THROW', carrier: 'TAP JUKE  SWIPE> STIFF  2xTAP DIVE', route: 'TAP: CALL FOR THE BALL', catch: 'TAP WHEN RINGS MEET!', defend: 'TAP: BURST / DIVE TACKLE', block: 'RUN INTO DEFENDERS TO BLOCK', qbrun: 'HAND OFF...' };
+      const hints = { qb: 'DRAG BACK & RELEASE TO THROW', carrier: 'TAP JUKE  SWIPE> STIFF  2xTAP DIVE', route: 'TAP: CALL FOR THE BALL', catch: 'TAP WHEN RINGS MEET!', defend: 'TAP: BURST / DIVE TACKLE', block: 'RUN INTO DEFENDERS TO BLOCK', qbrun: 'HAND OFF...', mesh: 'TAKING THE HANDOFF...' };
       if (this.state === 'live' && hints[mode] && !this.sc) F.draw(ctx, hints[mode], W2 * 0.73, H2 - 10, { align: 'center', color: 'rgba(255,255,255,0.55)', shadow: false });
       if (mode === 'qb' && this.settings.aimMode === 'push' && this.state === 'live' && !I.drag.active) F.draw(ctx, 'DRAG TOWARD TARGET', W2 * 0.73, H2 - 19, { align: 'center', color: 'rgba(255,255,255,0.4)', shadow: false });
       // drag line
