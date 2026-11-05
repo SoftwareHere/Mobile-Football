@@ -318,7 +318,7 @@
   };
 
   // ================================================================== HUB
-  UI.NAV = [['home', 'HOME'], ['player', 'PLAYER'], ['train', 'TRAIN'], ['locker', 'LOCKER'], ['team', 'TEAM'], ['league', 'LEAGUE'], ['career', 'CAREER'], ['agent', 'AGENT'], ['menu', 'MENU']];
+  UI.NAV = [['home', 'HOME'], ['player', 'PLAYER'], ['train', 'TRAIN'], ['locker', 'LOCKER'], ['team', 'TEAM'], ['plays', 'PLAYBOOK'], ['league', 'LEAGUE'], ['career', 'CAREER'], ['agent', 'AGENT'], ['menu', 'MENU']];
   UI.hub = (tab, sub) => {
     if (!C.cur) { UI.title(); return; }
     if (A()) A().stopMusic();
@@ -337,7 +337,7 @@
     const nav = h('div.nav', UI.NAV.map(([id, label]) => h('button.nv' + (id === UI.tab ? '.on' : ''), { onclick: click(() => UI.hub(id)) },
       label, id === 'player' && career.sp > 0 ? h('i.dot') : null, id === 'agent' && (career.offers.length || C.contractNeeded()) ? h('i.dot') : null, id === 'train' && career.event != null ? h('i.dot') : null)));
     const content = h('div.content');
-    const fn = { home: UI.tHome, player: UI.tPlayer, train: UI.tTrain, locker: UI.tLocker, team: UI.tTeam, league: UI.tLeague, career: UI.tCareer, agent: UI.tAgent, menu: UI.tMenu }[UI.tab];
+    const fn = { home: UI.tHome, player: UI.tPlayer, train: UI.tTrain, locker: UI.tLocker, team: UI.tTeam, plays: UI.tPlays, league: UI.tLeague, career: UI.tCareer, agent: UI.tAgent, menu: UI.tMenu }[UI.tab];
     content.appendChild(fn(sub));
     UI.set(h('div.screen.hub', top, h('div.hubbody', nav, content)));
   };
@@ -951,6 +951,76 @@
         return h('div.offer.fa', UI.badge(t), h('div', h('b', o.teamName), h('div.tiny', `Team OVR ${o.ovr} · Prestige ${o.prestige} · Role: ${o.role}`), h('div.sub', `${U.money(o.sal)}/yr × ${o.yrs} yrs · Bonus ${U.money(o.bonus)}`)),
           h('button.btn', { onclick: click(() => { C.signContract(o); C.save(); UI.closeModal(); UI.toast(`Signed with ${o.teamName}!`); UI.hub('home'); }) }, 'SIGN'));
       })), { title: 'FREE AGENCY', wide: true, noClose: true });
+  };
+
+  // ---------------- PLAYBOOK & PLAY DESIGNER
+  UI.tPlays = (sub) => {
+    sub = sub || 'book';
+    const { career } = C.cur, p = C.user();
+    const tabs = UI.tabs([['book', 'TEAM PLAYBOOK'], ['mine', 'MY PLAYS'], ['def', 'DEFENSE']], sub, (id) => UI.refresh(id));
+    let body;
+    if (sub === 'book') {
+      const forms = Object.keys(Plays.FORMS);
+      body = h('div', forms.map((f) => h('div.card', h('div.kicker', Plays.FORMS[f].name.toUpperCase()),
+        h('div.plays-grid.static', Plays.PLAYS.filter((pl) => pl.form === f).map((pl) => h('div.pcard', PG.Match.diagram(pl, null), h('div.pn', pl.name),
+          h('div.pt', pl.type === 'run' ? 'RUN · ' + pl.run.toUpperCase() : (pl.pa ? 'PLAY ACTION · ' : '') + 'DROP ' + pl.drop + ' · READ 1: ' + pl.prog[0])))))));
+    } else if (sub === 'mine') {
+      body = h('div.card',
+        h('div.sub', p.pos === 'QB' ? 'Design your own plays. They appear under MY PLAYS when you call plays in games.' : 'Design plays and suggest them to your coach in the huddle (needs 60+ trust). The coach may call them too.'),
+        h('button.btn.big', { onclick: click(() => UI.playDesigner()) }, 'CREATE PLAY'),
+        h('div.plays-grid.static', career.customPlays.map((pl, i) => h('div.pcard', PG.Match.diagram(pl, null), h('div.pn', pl.name), h('div.pt', Plays.FORMS[pl.form].name),
+          h('div.row', h('button.btn.sm', { onclick: click(() => UI.playDesigner(pl)) }, 'EDIT'), h('button.btn.sm.dim', { onclick: click(() => { career.customPlays.splice(i, 1); C.save(); UI.refresh('mine'); }) }, 'DELETE'))))),
+        !career.customPlays.length ? h('div.tiny', 'No custom plays yet.') : null);
+    } else {
+      body = h('div.card', h('div.tiny', 'Defensive calls your coordinator (or you, as a defender) can make.'),
+        Plays.DEF_PLAYS.map((d) => h('div.dline', h('b', d.name), h('span.tiny', d.desc), d.blitz > 0 ? h('span.gold', 'BLITZ') : null)));
+    }
+    return h('div', tabs, body);
+  };
+  UI.playDesigner = (edit) => {
+    const { career } = C.cur;
+    const st = edit ? JSON.parse(JSON.stringify(edit)) : { id: 'cus_' + Date.now(), form: 'SG_DBL', name: 'My Play ' + (career.customPlays.length + 1), type: 'pass', drop: 5, pa: false, a: {}, prog: [], tags: ['mid'], custom: true };
+    const routeIds = Object.keys(Plays.ROUTES);
+    const eligible = (form) => Object.keys(Plays.FORMS[form].slots).filter((s) => /^(WR|TE|RB|FB)/.test(s));
+    const box = h('div');
+    const render = () => {
+      const slots = eligible(st.form);
+      for (const s of Object.keys(st.a)) if (!slots.includes(s)) delete st.a[s];
+      for (const s of slots) if (st.a[s] == null) st.a[s] = /^(RB|FB)/.test(s) ? 'block' : 'go';
+      const routed = slots.filter((s) => { const a = st.a[s]; return (Array.isArray(a) ? a[0] : a) !== 'block'; });
+      if (!routed.includes(st.prog[0])) st.prog = routed.slice();
+      else st.prog = [st.prog[0]].concat(routed.filter((s) => s !== st.prog[0]));
+      box.innerHTML = '';
+      box.appendChild(h('div.designer',
+        h('div.dz-prev', PG.Match.diagram(st, st.prog[0]), h('div.tiny', 'Orange/yellow = primary read')),
+        h('div.dz-opts',
+          h('div.frow', h('label', 'Name'), h('input.inp', { value: st.name, maxlength: 18, oninput: (e) => { st.name = e.target.value.slice(0, 18); } })),
+          h('div.lrow', h('label', 'Formation'), h('div.chips', Object.keys(Plays.FORMS).map((f) => h('button.chip' + (st.form === f ? '.on' : ''), { onclick: click(() => { st.form = f; render(); }) }, Plays.FORMS[f].name)))),
+          h('div.lrow', h('label', 'QB drop'), h('div.chips', [1, 3, 5, 7].map((d) => h('button.chip' + (st.drop === d ? '.on' : ''), { onclick: click(() => { st.drop = d; render(); }) }, d === 1 ? 'Quick' : d + '-step'))),
+            h('button.chip' + (st.pa ? '.on' : ''), { onclick: click(() => { st.pa = !st.pa; render(); }) }, 'Play action')),
+          slots.map((s) => {
+            const a = st.a[s];
+            const rid = Array.isArray(a) ? a[0] : a;
+            const back = /^(RB|FB)/.test(s);
+            return h('div.frow', h('label', s + (st.prog[0] === s ? ' ★' : '')),
+              h('select.inp', { onchange: (e) => { st.a[s] = back && e.target.value !== 'block' ? [e.target.value, Array.isArray(a) ? a[1] : 1] : e.target.value; render(); } },
+                h('option', { value: 'block', selected: rid === 'block' }, 'Block'), routeIds.map((r) => h('option', { value: r, selected: rid === r }, Plays.ROUTES[r].name))),
+              back && rid !== 'block' ? h('button.chip', { onclick: click(() => { st.a[s] = [rid, (Array.isArray(a) ? a[1] : 1) * -1]; render(); }) }, (Array.isArray(a) && a[1] < 0) ? 'LEFT' : 'RIGHT') : null,
+              rid !== 'block' ? h('button.chip' + (st.prog[0] === s ? '.on' : ''), { onclick: click(() => { st.prog = [s]; render(); }) }, 'PRIMARY') : null);
+          }),
+          h('div.row',
+            h('button.btn.big', { onclick: click(() => {
+              if (!st.prog.length) { UI.toast('Give at least one player a route'); return; }
+              const deep = Object.values(st.a).some((a) => ['go', 'post', 'corner', 'fade', 'seam', 'wheel'].includes(Array.isArray(a) ? a[0] : a));
+              st.tags = [deep ? 'deep' : st.drop <= 3 ? 'short' : 'mid'].concat(st.pa ? ['pa'] : []);
+              st.name = (st.name || 'Custom Play').trim() || 'Custom Play';
+              const i = career.customPlays.findIndex((x) => x.id === st.id);
+              if (i >= 0) career.customPlays[i] = st; else career.customPlays.push(st);
+              C.save(); UI.closeModal(); UI.toast('Play saved to your playbook'); UI.hub('plays', 'mine');
+            }) }, 'SAVE PLAY')))));
+    };
+    render();
+    UI.modal(box, { title: edit ? 'EDIT PLAY' : 'PLAY DESIGNER', wide: true });
   };
 
   // ---------------- MENU

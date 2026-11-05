@@ -34,15 +34,16 @@
   const contrast = (a, b) => Math.abs(U.luma(a) - U.luma(b));
 
   // Build a color palette for a player on a team
-  Sp.palette = (team, home, look) => {
+  Sp.palette = (team, home, look, alt) => {
     look = look || {};
     const c1 = team.c1, c2 = team.c2;
     const pal = {};
-    if (home) {
+    if (home || alt) {
       pal.J = c1;
       pal.T = contrast(c1, c2) > 0.25 ? c2 : (U.luma(c1) > 0.5 ? '#222222' : '#f4f4f4');
       pal.P = U.luma(c2) > 0.55 ? c2 : '#e6e6e6';
       pal.K = c1;
+      if (alt) pal.P = '#e6e6e6';
     } else {
       pal.J = '#f2f2f2';
       pal.T = U.luma(c1) < 0.8 ? c1 : c2;

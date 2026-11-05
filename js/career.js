@@ -24,9 +24,10 @@
       celebs: { owned: ['spike', 'flex'], eq: 'spike' }, endorsements: [], offers: [], actions: 3, maxActions: 3,
       goals: [], gameGoals: [], history: [], gameLog: [], timeline: [], event: null, settings: Object.assign(C.defaultSettings(), opts.settings || {}),
       nickname: '', contractTalk: null, tradeReq: false, retired: false, hof: false, weekDone: {}, combine: null, milestones: {},
-      seasonsPlayed: 0, totalEarned: 0,
+      seasonsPlayed: 0, totalEarned: 0, customPlays: [],
     };
     C.cur = { career, lg };
+    if (PG.Plays) PG.Plays.custom = career.customPlays;
     career.combine = C.runCombine(p);
     return C.cur;
   };
@@ -696,6 +697,8 @@
       const data = JSON.parse(raw);
       C.cur = { career: data.career, lg: data.lg, slot };
       C.cur.career.settings = Object.assign(C.defaultSettings(), C.cur.career.settings || {});
+      C.cur.career.customPlays = C.cur.career.customPlays || [];
+      if (PG.Plays) PG.Plays.custom = C.cur.career.customPlays;
       L.invalidate();
       return C.cur;
     } catch (e) { console.warn('load failed', e); return null; }

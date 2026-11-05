@@ -296,8 +296,9 @@
       tabs.innerHTML = ''; grid.innerHTML = '';
       tabs.appendChild(h('button.tab' + (cur === 'FILTER_RUN' ? '.on' : ''), { onclick: () => { cur = 'FILTER_RUN'; renderTab(); } }, 'RUNS'));
       tabs.appendChild(h('button.tab' + (cur === 'FILTER_PASS' ? '.on' : ''), { onclick: () => { cur = 'FILTER_PASS'; renderTab(); } }, 'PASSES'));
+      if ((Plays.custom || []).length) tabs.appendChild(h('button.tab' + (cur === 'FILTER_CUSTOM' ? '.on' : ''), { onclick: () => { cur = 'FILTER_CUSTOM'; renderTab(); } }, 'MY PLAYS'));
       for (const f of forms) tabs.appendChild(h('button.tab' + (f === cur ? '.on' : ''), { onclick: () => { cur = f; renderTab(); } }, Plays.FORMS[f].name));
-      const list = cur === 'FILTER_RUN' ? all.filter((p) => p.type === 'run') : cur === 'FILTER_PASS' ? all.filter((p) => p.type !== 'run') : all.filter((p) => p.form === cur);
+      const list = cur === 'FILTER_RUN' ? all.filter((p) => p.type === 'run') : cur === 'FILTER_PASS' ? all.filter((p) => p.type !== 'run') : cur === 'FILTER_CUSTOM' ? (Plays.custom || []) : all.filter((p) => p.form === cur);
       for (const p of list) {
         const card = h('button.pcard' + (p.id === sugg.id ? '.sugg' : ''), { onclick: () => { M.lastForm = p.form; M.hide(); M.runPlay(p); } },
           M.diagram(p, null), h('div.pn', p.name), h('div.pt', (p.type === 'run' ? 'RUN' : p.pa ? 'PLAY ACTION' : p.type === 'screen' ? 'SCREEN' : 'PASS') + ' · ' + Plays.FORMS[p.form].name));

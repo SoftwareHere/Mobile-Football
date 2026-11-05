@@ -27,6 +27,9 @@
       this.result = null;
       this.stats = { perfects: 0, bigPlay: 0, catches: 0 };
       this.flipS = o.flip ? -1 : 1;
+      // light home jerseys: the road team wears its dark colors instead of white
+      const homeT = o.offHome ? o.offTeam : o.defTeam, awayT = o.offHome ? o.defTeam : o.offTeam;
+      this.awayAlt = U.luma(homeT.c1) > 0.5 && U.luma(awayT.c1) < 0.45;
       this.ball = { state: 'held', holder: null, x: 0, y: 0, z: 1, spin: 0 };
       this.build();
       this.cam = { x: this.los - 18, y: this.ballY - 14 };
@@ -54,7 +57,7 @@
       if (role === 'OL' || role === 'DL') e.maxSpd *= 0.96;
       const team = side === 'off' ? o.offTeam : o.defTeam;
       const home = side === 'off' ? o.offHome : !o.offHome;
-      e.pal = Sp.palette(team, home, Pl.look(p));
+      e.pal = Sp.palette(team, home, Pl.look(p), !home && this.awayAlt);
       e.num = p.num;
       e.lefty = !!Pl.look(p).lefty;
       this.ents.push(e);
