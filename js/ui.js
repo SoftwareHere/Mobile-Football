@@ -130,7 +130,7 @@
       UI.toggleRow('Sound effects', st.sfx, () => { st.sfx = !st.sfx; if (A()) A().setOn(st.sfx); refresh(); }),
       UI.toggleRow('Menu music', st.music, () => { st.music = !st.music; if (A()) { A().setMusic(st.music); if (st.music) A().startMusic(); } refresh(); }),
       UI.toggleRow('Throw aim: pull back (slingshot)', st.aimMode !== 'push', () => { st.aimMode = st.aimMode === 'push' ? 'pull' : 'push'; refresh(); }),
-      UI.toggleRow('Auto-run my route until I move', st.autoRoute, () => { st.autoRoute = !st.autoRoute; refresh(); }),
+      UI.toggleRow('Auto-pilot (routes & coverage) until I steer', st.autoRoute, () => { st.autoRoute = !st.autoRoute; refresh(); }),
       UI.toggleRow('Show routes before the snap', st.showRoutes, () => { st.showRoutes = !st.showRoutes; refresh(); }),
       UI.toggleRow('Slow-motion on catch skill checks', st.slowmo, () => { st.slowmo = !st.slowmo; refresh(); }),
       UI.toggleRow('Skip kick animations', st.fastKicks, () => { st.fastKicks = !st.fastKicks; refresh(); }),
@@ -233,7 +233,7 @@
       h('div.lrow', h('label', 'Playing time'), opt('playingTime', ['earn', 'starter'], ['Earn it (depth chart)', 'Guaranteed starter'])),
       h('div.lrow', h('label', 'Injuries'), opt('injuries', [true, false], ['On', 'Off'])),
       h('div.lrow', h('label', 'Throw aim'), opt('aimMode', ['pull', 'push'], ['Pull back (slingshot)', 'Drag toward target'])),
-      h('div.lrow', h('label', 'Route assist'), opt('autoRoute', [false, true], ['Manual routes', 'Auto-run until I steer'])));
+      h('div.lrow', h('label', 'Auto-pilot'), opt('autoRoute', [false, true], ['Off: I steer everything', 'On: AI runs my route/coverage until I steer'])));
   };
   UI.createCareer = (st) => {
     if (!st.first.trim() || !st.last.trim()) { UI.toast('Enter a name'); st.step = 2; UI.renderCreator(st); return; }
@@ -283,7 +283,7 @@
     const { career, lg } = C.cur;
     const diff = D.DIFFICULTY.find((d) => d.id === lg.settings.difficulty) || D.DIFFICULTY[1];
     PG.Game.show();
-    const tm = team && team.c1 ? team : { c1: '#2b4a8a', c2: '#e8b02a', abbr: 'PRO', name: 'Practice', city: 'Practice' };
+    const tm = Object.assign({ c1: '#2b4a8a', c2: '#e8b02a', abbr: 'PRO', name: 'Prospects', city: 'Combine' }, team || {});
     const d = new PG.Drill({ kind, player: C.user(), team: tm, settings: career.settings, diff, perks: new Set(career.perks.equipped),
       onEnd: (score) => { PG.Game.hide(); done(score); } });
     PG.Game.setScene(d);
@@ -539,14 +539,14 @@
       const need = C.contractNeeded();
       card.append(h('div.kicker', 'OFFSEASON · RE-SIGNING PERIOD'),
         h('div.sub', need ? 'Your contract has expired! Negotiate with your team or test free agency.' : `Your contract: ${p.con.yrs} more season(s) at ${U.money(p.con.sal)}/yr.`),
-        need ? h('button.btn.big', { onclick: click(() => UI.contractTalks(false)) }, 'NEGOTIATE') : h('button.btn.big', { onclick: click(() => { S.offseasonContracts(lg); C.save(); UI.hub('home'); }) }, 'ADVANCE TO DRAFT'),
+        need ? h('button.btn.big', { onclick: click(() => UI.contractTalks(false)) }, 'NEGOTIATE') : h('button.btn.big', { onclick: click(() => { S.offseasonContracts(lg); C.offseasonWeek(); C.save(); UI.hub('home'); }) }, 'ADVANCE TO DRAFT'),
         h('div.tiny', 'Teams are re-signing their own free agents.'));
     } else if (ph === 'draft') {
       card.append(h('div.kicker', 'OFFSEASON · DRAFT'), h('div.sub', '224 rookies are about to enter the league. Your team may draft your competition.'),
-        h('button.btn.big', { onclick: click(() => { const picks = S.runDraft(lg); UI.draftResults(picks); C.save(); }) }, 'RUN THE DRAFT'));
+        h('button.btn.big', { onclick: click(() => { const picks = S.runDraft(lg); C.offseasonWeek(); UI.draftResults(picks); C.save(); }) }, 'RUN THE DRAFT'));
     } else if (ph === 'freeagency') {
       card.append(h('div.kicker', 'OFFSEASON · FREE AGENCY'), h('div.sub', 'Teams fill holes and clear cap space.'),
-        h('button.btn.big', { onclick: click(() => { S.runFreeAgency(lg); C.save(); UI.hub('home'); UI.toast('Free agency complete'); }) }, 'RUN FREE AGENCY'));
+        h('button.btn.big', { onclick: click(() => { S.runFreeAgency(lg); C.offseasonWeek(); C.save(); UI.hub('home'); UI.toast('Free agency complete'); }) }, 'RUN FREE AGENCY'));
     } else if (ph === 'camp') {
       card.append(UI.campPanel());
     }
@@ -583,7 +583,7 @@
         h('div.tiny', `${retired} players retired around the league.`),
         h('div.sub', p.con && p.con.yrs > 0 ? `Contract: ${p.con.yrs} season(s) left at ${U.money(p.con.sal)}.` : 'Your contract has EXPIRED.')),
       forced ? h('div.warn', 'Your body says it is time. You must retire.') : null,
-      h('div.row', forced ? h('button.btn.big', { onclick: click(() => UI.doRetire()) }, 'RETIRE') : h('button.btn.big', { onclick: click(() => { C.save(); UI.hub('home'); }) }, 'CONTINUE')));
+      h('div.row', forced ? h('button.btn.big', { onclick: click(() => UI.doRetire()) }, 'RETIRE') : h('button.btn.big', { onclick: click(() => { C.offseasonWeek(); C.save(); UI.hub('home'); }) }, 'CONTINUE')));
     UI.set(el);
   };
   UI.draftResults = (picks) => {

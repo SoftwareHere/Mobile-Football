@@ -539,7 +539,7 @@
       if (e === this.ctrl && this.state === 'live') {
         const mode = this.mode;
         const st = I.stick();
-        const auto = ((mode === 'route' || mode === 'catch') && this.settings.autoRoute && !e.manual) || (mode === 'qb' && !e.userMoved && this.t < (this.dropT || 0)) || (mode === 'qbrun' && !e.userMoved);
+        const auto = ((mode === 'route' || mode === 'catch' || mode === 'defend' || mode === 'block' || mode === 'spectate') && this.settings.autoRoute && !e.manual) || (mode === 'qb' && !e.userMoved && this.t < (this.dropT || 0)) || (mode === 'qbrun' && !e.userMoved);
         e._auto = auto;
         if (!auto && mode !== 'none') {
           let sp = e.maxSpd * e.spdMul;
@@ -1938,12 +1938,27 @@
       const S = (x, y, z) => [Math.round((x - this.cam.x) * this.ppy), Math.round((y - this.cam.y) * this.ppy * E.YS - (z || 0) * E.ZS * this.ppy)];
       // simple line of players
       const palO = Sp.palette(o.offTeam, o.offHome, {}), palD = Sp.palette(o.defTeam, !o.offHome, {});
-      const lineX = o.kind === 'kickoff' ? o.fromX + 1 : o.fromX + (o.kind === 'punt' ? 13 : 7);
-      for (let i = -5; i <= 5; i++) {
-        const y = W / 2 + i * 1.6;
-        const [ax, ay] = S(lineX - 0.6, y), [bx, by] = S(lineX + 0.8, y);
-        ctx.drawImage(Sp.get(palO, 'block', 'run3', false), ax - 6, ay - 16);
-        ctx.drawImage(Sp.get(palD, 'block', 'run3', true), bx - 6, by - 16);
+      const run = ['run1', 'run2', 'run3', 'run2'][Math.floor(this.t * 9) % 4];
+      if (o.kind === 'kickoff') {
+        // coverage team sprints downfield, return team sets up its wall
+        for (let i = 0; i < 10; i++) {
+          const y = 4 + i * 5.05;
+          const [ax, ay] = S(o.fromX + Math.min(this.t, 3) * 8.5, y);
+          ctx.drawImage(Sp.get(palO, 'idle', run, false), ax - 6, ay - 16);
+        }
+        const deep = [[12, 10], [12, 20], [12, 33], [12, 43], [22, 16], [22, 37], [30, 26]];
+        for (const [dx, y] of deep) {
+          const [bx, by] = S(Math.min(118, o.fromX + 30 + dx), y);
+          ctx.drawImage(Sp.get(palD, 'block', 'stand', true), bx - 6, by - 16);
+        }
+      } else {
+        const lineX = o.fromX + (o.kind === 'punt' ? 13 : 7);
+        for (let i = -5; i <= 5; i++) {
+          const y = W / 2 + i * 1.6;
+          const [ax, ay] = S(lineX - 0.6, y), [bx, by] = S(lineX + 0.8, y);
+          ctx.drawImage(Sp.get(palO, 'block', 'run3', false), ax - 6, ay - 16);
+          ctx.drawImage(Sp.get(palD, 'block', 'run3', true), bx - 6, by - 16);
+        }
       }
       const [kx, ky] = S(o.fromX - 1.2, W / 2);
       ctx.drawImage(Sp.get(palO, this.t < 0.2 ? 'idle' : 'release', this.t < 0.25 ? 'run1' : 'stand', false), kx - 6, ky - 16);

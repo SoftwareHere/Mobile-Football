@@ -495,7 +495,7 @@
     if (wasOpen && !wasOpen.classList.contains('pause')) M.resumeTo = ((node) => () => M.show(node, node.classList.contains('playbook') || node.classList.contains('coach') ? 'full' : 'center'))(wasOpen);
     const el = h('div.panel.pause', h('div.kicker', 'PAUSED'),
       h('div.scoreline', `${M.gs.teams.away.abbr} ${M.gs.score.away} — ${M.gs.teams.home.abbr} ${M.gs.score.home}`),
-      h('div.row.wrap', tog('sfx', 'SOUND'), tog('autoRoute', 'AUTO ROUTE'), tog('showRoutes', 'SHOW ROUTES'), tog('slowmo', 'SLOW-MO CATCH'), tog('fastKicks', 'SKIP KICKS'),
+      h('div.row.wrap', tog('sfx', 'SOUND'), tog('autoRoute', 'AUTO-PILOT'), tog('showRoutes', 'SHOW ROUTES'), tog('slowmo', 'SLOW-MO CATCH'), tog('fastKicks', 'SKIP KICKS'),
         h('button.btn.sm', { onclick: () => { st.aimMode = st.aimMode === 'push' ? 'pull' : 'push'; M.pause(); } }, 'AIM: ' + (st.aimMode === 'push' ? 'DRAG TOWARD' : 'PULL BACK'))),
       h('div.row',
         h('button.btn.big', { onclick: resume }, 'RESUME'),

@@ -158,7 +158,7 @@
     }
     return { amt, levels };
   };
-  C.upgradeCost = (v) => (v < 70 ? 1 : v < 80 ? 1 : v < 85 ? 2 : v < 90 ? 2 : v < 95 ? 3 : 4);
+  C.upgradeCost = (v) => (v < 65 ? 1 : v < 75 ? 2 : v < 85 ? 3 : v < 92 ? 4 : 5);
   C.upgrade = (k) => {
     const p = C.user(), { career } = C.cur;
     const v = p.r[k];
@@ -257,6 +257,20 @@
     // weekly game goals
     C.makeGameGoals();
     C.celebsUnlocked();
+  };
+
+  // offseason phases act like weeks for training and life events
+  C.offseasonWeek = () => {
+    const { career } = C.cur;
+    career.actions = career.maxActions;
+    career.energy = U.clamp(career.energy + 40, 0, 100);
+    let income = 0;
+    for (const e of career.endorsements) { income += e.weekly; e.weeks--; }
+    career.endorsements = career.endorsements.filter((e) => e.weeks > 0);
+    career.money += income * 0.97;
+    career.totalEarned += income;
+    career.event = Math.random() < 0.45 ? U.rndi(0, D.EVENTS.length - 1) : null;
+    C.rollEndorsements();
   };
 
   C.rollEndorsements = () => {
@@ -387,6 +401,7 @@
     career.goals.push({ key: 'playoffs', target: 1, text: 'Make the playoffs', xp: 800, done: false });
     career.gameLog = [];
     career.seasonStartOvr = p.ovr;
+    career.extTried = false; career.tradeReq = false; career.focus = 0;
     C.weekStart();
   };
   C.makeGameGoals = () => {
