@@ -12,6 +12,8 @@ python3 -m http.server 8000
 # then open http://localhost:8000 on your phone (same Wi-Fi) or desktop
 ```
 
+To play on your phone from anywhere, publish the repo with GitHub Pages (Settings → Pages → deploy from this branch, root folder) and open the Pages URL.
+
 On a phone, use **Add to Home Screen** to get the full-screen landscape app. Desktop works too: WASD/arrows move, mouse-drag on the right half throws, Space taps, J/K/L = juke/stiff-arm/dive, P pauses.
 
 ## Controls

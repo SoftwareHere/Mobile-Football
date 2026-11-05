@@ -70,11 +70,26 @@
         h('div.tm', h('div.badge', { style: { background: hm.c1, color: hm.c2 } }, hm.abbr), h('div.tn', L.teamName(hm)), h('div.tr', L.record(hm) + ' · OVR ' + rh.ovr))),
       h('div.sub', hm.stadium + ' · ' + M.weatherStr(gs.weather)),
       M.userOut ? h('div.warn', `You are injured (${C.user().inj.name}). You'll watch from the sideline.`) : h('div.sub', M.unit === 'off' ? 'You play every offensive snap you are on the field for.' : 'You play every defensive snap you are on the field for.'),
+      M.userOut ? null : h('div.ctrlhint', M.controlHint()),
       h('div.row',
         h('button.btn.big', { onclick: () => { M.hide(); M.next(); } }, M.userOut ? 'WATCH' : 'KICKOFF'),
         h('button.btn', { onclick: () => M.simRest() }, 'SIM GAME')));
     M.show(el, 'center');
     if (PG.Audio) PG.Audio.crowd(true);
+  };
+
+  M.controlHint = () => {
+    const pos = C.user().pos, st = C.settings();
+    const aim = st.aimMode === 'push' ? 'drag toward your target' : 'pull back like a slingshot';
+    const hints = {
+      QB: [`LEFT THUMB: move / scramble`, `RIGHT SIDE: ${aim} and release to throw · double-tap = throw away`, 'After a handoff or catch you control the ball carrier'],
+      RB: ['LEFT THUMB: run', 'RIGHT SIDE: tap = juke · swipe forward = stiff arm · swipe back = spin · double-tap = dive', 'Passes to you: tap when the rings meet'],
+      WR: ['LEFT THUMB: run your yellow route', 'RIGHT SIDE: tap to call for the ball', 'Ball in the air: get under the marker and tap when the rings meet'],
+      TE: ['LEFT THUMB: run your route or block', 'RIGHT SIDE: tap to call for the ball', 'Ball in the air: tap when the rings meet'],
+    };
+    const def = ['LEFT THUMB: cover your man / zone and pursue', 'RIGHT SIDE: tap = burst / dive tackle · mash tap to shed blocks', 'Pass near you: tap when the rings meet for the pick'];
+    const lines = hints[pos] || def;
+    return lines.map((l) => h('div', '▸ ' + l)).concat(st.autoRoute ? [h('div.tiny', 'Auto-pilot is ON: the AI runs your route/coverage until you touch the joystick.')] : []);
   };
 
   M.userInvolved = () => {
